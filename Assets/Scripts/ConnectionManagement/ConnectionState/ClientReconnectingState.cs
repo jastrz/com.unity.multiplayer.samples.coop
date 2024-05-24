@@ -61,10 +61,13 @@ namespace Unity.BossRoom.ConnectionManagement
                     switch (connectStatus)
                     {
                         case ConnectStatus.UserRequestedDisconnect:
-                        case ConnectStatus.HostEndedSession:
                         case ConnectStatus.ServerFull:
                         case ConnectStatus.IncompatibleBuildType:
                             m_ConnectionManager.ChangeState(m_ConnectionManager.m_Offline);
+                            break;
+                        case ConnectStatus.HostEndedSession:
+                        case ConnectStatus.GenericDisconnect:
+                            m_ConnectionManager.ChangeState(m_ConnectionManager.m_HostMigration);
                             break;
                         default:
                             m_ReconnectCoroutine = m_ConnectionManager.StartCoroutine(ReconnectCoroutine());

@@ -72,6 +72,7 @@ namespace Unity.BossRoom.ConnectionManagement
         public int MaxConnectedPlayers = 8;
 
         internal readonly OfflineState m_Offline = new OfflineState();
+        internal readonly ClientHostMigrationState m_HostMigration = new ClientHostMigrationState();
         internal readonly ClientConnectingState m_ClientConnecting = new ClientConnectingState();
         internal readonly ClientConnectedState m_ClientConnected = new ClientConnectedState();
         internal readonly ClientReconnectingState m_ClientReconnecting = new ClientReconnectingState();
@@ -85,7 +86,7 @@ namespace Unity.BossRoom.ConnectionManagement
 
         void Start()
         {
-            List<ConnectionState> states = new() { m_Offline, m_ClientConnecting, m_ClientConnected, m_ClientReconnecting, m_StartingHost, m_Hosting };
+            List<ConnectionState> states = new() { m_Offline, m_ClientConnecting, m_ClientConnected, m_ClientReconnecting, m_StartingHost, m_Hosting, m_HostMigration };
             foreach (var connectionState in states)
             {
                 m_Resolver.Inject(connectionState);

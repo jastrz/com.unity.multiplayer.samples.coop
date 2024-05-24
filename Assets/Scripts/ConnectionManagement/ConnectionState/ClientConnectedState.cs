@@ -1,6 +1,9 @@
+using System;
 using Unity.BossRoom.UnityServices.Lobbies;
 using UnityEngine;
 using VContainer;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Unity.BossRoom.ConnectionManagement
 {
@@ -26,18 +29,29 @@ namespace Unity.BossRoom.ConnectionManagement
         public override void OnClientDisconnect(ulong _)
         {
             var disconnectReason = m_ConnectionManager.NetworkManager.DisconnectReason;
-            if (string.IsNullOrEmpty(disconnectReason) ||
-                disconnectReason == "Disconnected due to host shutting down.")
+
+            try
             {
-                m_ConnectStatusPublisher.Publish(ConnectStatus.Reconnecting);
-                m_ConnectionManager.ChangeState(m_ConnectionManager.m_ClientReconnecting);
-            }
-            else
-            {
+                Debug.Log($"Disconnected : {disconnectReason}");
                 var connectStatus = JsonUtility.FromJson<ConnectStatus>(disconnectReason);
                 m_ConnectStatusPublisher.Publish(connectStatus);
-                m_ConnectionManager.ChangeState(m_ConnectionManager.m_Offline);
+                switch (connectStatus)
+                {
+                    case ConnectStatus.HostEndedSession:
+                    case ConnectStatus.GenericDisconnect:
+                        m_ConnectionManager.ChangeState(m_ConnectionManager.m_HostMigration);
+                        break;
+                    default:
+                        m_ConnectionManager.ChangeState(m_ConnectionManager.m_ClientReconnecting);
+                        break;
+                }
             }
+            catch
+            {
+
+                m_ConnectionManager.ChangeState(m_ConnectionManager.m_HostMigration);
+            }
+
         }
     }
 }

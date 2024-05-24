@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Unity.BossRoom.Infrastructure;
 using Unity.Services.Authentication;
@@ -41,6 +42,9 @@ namespace Unity.BossRoom.UnityServices.Lobbies
 
         bool m_IsTracking = false;
 
+        public string RelayCodeUsedForConnection { get; private set; }
+        public bool HostChanged { get; private set; }
+
         LobbyEventConnectionState m_LobbyEventConnectionState = LobbyEventConnectionState.Unknown;
 
         public void Start()
@@ -74,6 +78,12 @@ namespace Unity.BossRoom.UnityServices.Lobbies
             m_LocalLobby.ApplyRemoteData(lobby);
         }
 
+        public void EndMigration()
+        {
+            RelayCodeUsedForConnection = m_LocalLobby.RelayJoinCode;
+            HostChanged = false;
+        }
+
         /// <summary>
         /// Initiates tracking of joined lobby's events. The host also starts sending heartbeat pings here.
         /// </summary>
@@ -94,7 +104,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
         }
 
         /// <summary>
-        /// Ends tracking of joined lobby's events and leaves or deletes the lobby. The host also stops sending heartbeat pings here.
+        /// Ends tracking of joined lobby's events and leaves the lobby. The host also stops sending heartbeat pings here.
         /// </summary>
         public void EndTracking()
         {
@@ -112,14 +122,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
 
             if (CurrentUnityLobby != null)
             {
-                if (m_LocalUser.IsHost)
-                {
-                    DeleteLobbyAsync();
-                }
-                else
-                {
-                    LeaveLobbyAsync();
-                }
+                LeaveLobbyAsync();
             }
         }
 
@@ -168,16 +171,18 @@ namespace Unity.BossRoom.UnityServices.Lobbies
 
             try
             {
+                Lobby lobby;
                 if (!string.IsNullOrEmpty(lobbyCode))
                 {
-                    var lobby = await m_LobbyApiInterface.JoinLobbyByCode(AuthenticationService.Instance.PlayerId, lobbyCode, m_LocalUser.GetDataForUnityServices());
-                    return (true, lobby);
+                    lobby = await m_LobbyApiInterface.JoinLobbyByCode(AuthenticationService.Instance.PlayerId, lobbyCode, m_LocalUser.GetDataForUnityServices());
                 }
                 else
                 {
-                    var lobby = await m_LobbyApiInterface.JoinLobbyById(AuthenticationService.Instance.PlayerId, lobbyId, m_LocalUser.GetDataForUnityServices());
-                    return (true, lobby);
+                    lobby = await m_LobbyApiInterface.JoinLobbyById(AuthenticationService.Instance.PlayerId, lobbyId, m_LocalUser.GetDataForUnityServices());
                 }
+
+                RelayCodeUsedForConnection = lobby.Data["RelayJoinCode"].Value;
+                return (true, lobby);
             }
             catch (LobbyServiceException e)
             {
@@ -251,6 +256,13 @@ namespace Unity.BossRoom.UnityServices.Lobbies
             else
             {
                 Debug.Log("Lobby updated");
+
+                if (changes.HostId.Value != null && changes.HostId.Value != CurrentUnityLobby.HostId)
+                {
+                    Debug.Log($"Lobby host changes, new host id: {changes.HostId.Value}");
+                    HostChanged = true;
+                }
+
                 changes.ApplyToLobby(CurrentUnityLobby);
                 m_LocalLobby.ApplyRemoteData(CurrentUnityLobby);
 
@@ -265,9 +277,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
                         }
                     }
 
-                    m_UnityServiceErrorMessagePub.Publish(new UnityServiceErrorMessage("Host left the lobby", "Disconnecting.", UnityServiceErrorMessage.Service.Lobby));
-                    EndTracking();
-                    // no need to disconnect Netcode, it should already be handled by Netcode's callback to disconnect
+                    m_UnityServiceErrorMessagePub.Publish(new UnityServiceErrorMessage("Host left the lobby", "Migrating Host.", UnityServiceErrorMessage.Service.Lobby));
                 }
             }
         }
@@ -386,7 +396,6 @@ namespace Unity.BossRoom.UnityServices.Lobbies
             {
                 ResetLobby();
             }
-
         }
 
         public async void RemovePlayerFromLobbyAsync(string uasId)

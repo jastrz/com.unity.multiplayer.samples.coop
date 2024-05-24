@@ -16,11 +16,11 @@ namespace UUnity.BossRoom.ConnectionManagement
     class OfflineState : ConnectionState
     {
         [Inject]
-        LobbyServiceFacade m_LobbyServiceFacade;
+        protected LobbyServiceFacade m_LobbyServiceFacade;
         [Inject]
-        ProfileManager m_ProfileManager;
+        protected ProfileManager m_ProfileManager;
         [Inject]
-        LocalLobby m_LocalLobby;
+        protected LocalLobby m_LocalLobby;
 
         const string k_MainMenuSceneName = "MainMenu";
 

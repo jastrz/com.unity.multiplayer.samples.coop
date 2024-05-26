@@ -1,9 +1,6 @@
-using System;
 using Unity.BossRoom.UnityServices.Lobbies;
 using UnityEngine;
 using VContainer;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Unity.BossRoom.ConnectionManagement
 {
@@ -33,6 +30,7 @@ namespace Unity.BossRoom.ConnectionManagement
             try
             {
                 Debug.Log($"Disconnected : {disconnectReason}");
+                Debug.Log(_);
                 var connectStatus = JsonUtility.FromJson<ConnectStatus>(disconnectReason);
                 m_ConnectStatusPublisher.Publish(connectStatus);
                 switch (connectStatus)

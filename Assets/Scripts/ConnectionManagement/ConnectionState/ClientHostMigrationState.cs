@@ -1,21 +1,29 @@
+using System.Collections;
 using System.Threading.Tasks;
 using Unity.BossRoom.UnityServices.Lobbies;
 using Unity.Multiplayer.Samples.Utilities;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using UUnity.BossRoom.ConnectionManagement;
 using VContainer;
 
 namespace Unity.BossRoom.ConnectionManagement
 {
+    /// <summary>
+    /// This is the connection state that occurs when a host player disconnects from the Relay server, 
+    /// causing the remaining players to also disconnect. Despite the disconnection, the lobby remains intact. 
+    /// During this state, a new host is automatically selected by the lobby, which then initiates a new allocation process. 
+    /// The new join code is then communicated to the other clients through the lobby. Once a client receives the new code, 
+    /// they can reconnect to the server.
+    /// </summary>
     class ClientHostMigrationState : OfflineState
     {
         const string k_LobbySceneName = "CharSelect";
-        readonly int waitTime = 500;
 
         [Inject]
         protected LocalLobbyUser m_LocalUser;
 
-        public override async void Enter()
+        public override void Enter()
         {
             if (SceneManager.GetActiveScene().name != k_LobbySceneName)
             {
@@ -23,39 +31,25 @@ namespace Unity.BossRoom.ConnectionManagement
             }
 
             // Start new relay connections for host and clients
-            await HandleHostMigration();
+            m_ConnectionManager.StartCoroutine(HostMigrationCoroutine());
         }
 
-        async Task HandleHostMigration()
+        IEnumerator HostMigrationCoroutine()
         {
             // Lobby needs some time to select new host...
-            while (m_LobbyServiceFacade.HostChanged == false) await Task.Delay(waitTime);
-
+            yield return new WaitUntil(() => m_LobbyServiceFacade.HostChanged);
             if (m_LobbyServiceFacade.CurrentUnityLobby.HostId == m_LocalUser.ID)
             {
-                m_LocalUser.IsHost = true;
                 StartHostLobby(m_LocalUser.DisplayName);
             }
             else
             {
-                bool waitingForNewRelayCode = true;
+                // Wait until relay join code has been updated
+                yield return new WaitUntil(() => m_LobbyServiceFacade.CurrentUnityLobby.Data["RelayJoinCode"].Value != m_LobbyServiceFacade.RelayJoinCodeUsedForConnection);
 
-                do
-                {
-                    // Try to reconnect when host allocated new connection and new join code has been propagated to the lobby
-                    if (m_LobbyServiceFacade.CurrentUnityLobby.Data["RelayJoinCode"].Value != m_LobbyServiceFacade.RelayCodeUsedForConnection)
-                    {
-                        m_ConnectionManager.ChangeState(m_ConnectionManager.m_ClientReconnecting);
-                        waitingForNewRelayCode = false;
-                    }
-                    else
-                    {
-                        await Task.Delay(waitTime);
-                    }
-
-                } while (waitingForNewRelayCode);
+                // Try to reconnect
+                m_ConnectionManager.ChangeState(m_ConnectionManager.m_ClientReconnecting);
             }
-
             m_LobbyServiceFacade.EndMigration();
         }
 

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Unity.BossRoom.Infrastructure;
 using Unity.Services.Authentication;
@@ -42,7 +41,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
 
         bool m_IsTracking = false;
 
-        public string RelayCodeUsedForConnection { get; private set; }
+        public string RelayJoinCodeUsedForConnection { get; private set; }
         public bool HostChanged { get; private set; }
 
         LobbyEventConnectionState m_LobbyEventConnectionState = LobbyEventConnectionState.Unknown;
@@ -80,7 +79,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
 
         public void EndMigration()
         {
-            RelayCodeUsedForConnection = m_LocalLobby.RelayJoinCode;
+            RelayJoinCodeUsedForConnection = m_LocalLobby.RelayJoinCode;
             HostChanged = false;
         }
 
@@ -181,7 +180,7 @@ namespace Unity.BossRoom.UnityServices.Lobbies
                     lobby = await m_LobbyApiInterface.JoinLobbyById(AuthenticationService.Instance.PlayerId, lobbyId, m_LocalUser.GetDataForUnityServices());
                 }
 
-                RelayCodeUsedForConnection = lobby.Data["RelayJoinCode"].Value;
+                RelayJoinCodeUsedForConnection = lobby.Data["RelayJoinCode"].Value;
                 return (true, lobby);
             }
             catch (LobbyServiceException e)
